@@ -1,84 +1,97 @@
 """
-Serviço de inferência — consome métricas do gRPC e expõe resultados via Redis/fila.
-Roda como worker contínuo.
+Serviço de inferência — consome métricas do gRPC e classifica em tempo real.
+Expõe estado via HTTP para o api-gateway consultar.
+
+Fluxo: grpc-ingestion → [stream gRPC] → inference worker → resultado em memória → api-gateway
 """
 import time
-import json
 import os
 import sys
+import threading
+from fastapi import FastAPI
+import uvicorn
 
-# Adiciona path do simulador (em dev, pode consumir localmente)
-GRPC_HOST = os.getenv("GRPC_HOST", "localhost")
-GRPC_PORT = os.getenv("GRPC_PORT", "50051")
-REDIS_HOST = os.getenv("REDIS_HOST", "redis")
-REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+sys.path.insert(0, os.path.dirname(__file__))
+
 INFERENCE_INTERVAL = float(os.getenv("INFERENCE_INTERVAL", "1.0"))
+HTTP_PORT = int(os.getenv("ML_HTTP_PORT", "8001"))
 
-# Estado compartilhado em memória (simplificado; em prod use Redis)
-_latest_results: list = []
-MAX_HISTORY = 100
-
-
-def get_latest_results() -> list:
-    return list(_latest_results)
+# Estado compartilhado (thread-safe com lock)
+_lock = threading.Lock()
+_results: list = []
+MAX_HISTORY = 200
 
 
-def add_result(result: dict):
-    _latest_results.append(result)
-    if len(_latest_results) > MAX_HISTORY:
-        _latest_results.pop(0)
+def _add_result(result: dict):
+    with _lock:
+        _results.append(result)
+        if len(_results) > MAX_HISTORY:
+            _results.pop(0)
 
 
-def run_inference_loop():
-    """Loop de inferência: puxa métricas do simulador local e classifica."""
-    # Import local do simulador (dentro do container, está no mesmo diretório)
-    sys.path.insert(0, os.path.dirname(__file__))
+def get_results() -> list:
+    with _lock:
+        return list(_results)
 
+
+# ── FastAPI interna (consumida pelo api-gateway via HTTP) ──────────────────────
+app = FastAPI(title="ML Inference Service", version="1.0.0")
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "results_buffered": len(_results)}
+
+
+@app.get("/results")
+def results(limit: int = 50):
+    data = get_results()
+    return {"count": len(data), "results": data[-limit:]}
+
+
+@app.post("/predict")
+def predict_single(metric: dict):
+    """Endpoint para inferência sob demanda (usado pelo api-gateway)."""
     try:
-        from simulator import generate_metric
         from model import load_model, predict
-    except ImportError as e:
-        print(f"[Inference] Erro de importação: {e}")
-        print("[Inference] Gerando dados mock para demonstração.")
-        generate_metric = None
-        load_model = None
+        clf, scaler = load_model()
+        return predict(metric, clf, scaler)
+    except Exception as e:
+        return {"error": str(e)}
 
-    print("[Inference] Tentando carregar modelo...")
-    clf, scaler = None, None
-    if load_model:
+
+# ── Worker de inferência (consome gRPC stream) ─────────────────────────────────
+def _start_inference_worker():
+    """Carrega modelo e inicia consumo do stream gRPC em background."""
+    try:
+        from model import load_model, predict
+        clf, scaler = load_model()
+        print("[Inference] Modelo carregado.")
+    except FileNotFoundError:
+        print("[Inference] Modelo não encontrado. Execute trainer.py primeiro.")
+        clf, scaler = None, None
+
+    def on_metric(metric: dict):
+        if clf is None:
+            return
         try:
-            clf, scaler = load_model()
-            print("[Inference] Modelo carregado com sucesso.")
-        except FileNotFoundError:
-            print("[Inference] Modelo não encontrado. Execute trainer.py primeiro.")
-
-    print(f"[Inference] Worker iniciado. Intervalo: {INFERENCE_INTERVAL}s")
-
-    while True:
-        try:
-            if generate_metric and clf:
-                metric = generate_metric()
-                result = predict(metric, clf, scaler)
-                add_result(result)
-
-                if result["status"] != "NORMAL":
-                    print(f"[ALERTA] {result['node_id']}: {result['status']} -> {result['action']}")
-            else:
-                # Mock sem modelo carregado
-                mock = {
-                    "node_id": "gNB-001",
-                    "status": "NORMAL",
-                    "confidence": 0.95,
-                    "action": "NENHUMA",
-                    "raw_metrics": {"latency": 12.0, "throughput": 120.0, "packet_loss": 0.1, "jitter": 2.0},
-                }
-                add_result(mock)
-
+            result = predict(metric, clf, scaler)
+            _add_result(result)
+            if result["status"] != "NORMAL":
+                print(f"[ALERTA] {result['node_id']}: {result['status']} → {result['action']}")
         except Exception as e:
-            print(f"[Inference] Erro: {e}")
+            print(f"[Inference] Erro ao classificar: {e}")
 
-        time.sleep(INFERENCE_INTERVAL)
+    from grpc_client import stream_from_grpc
+    t = threading.Thread(target=stream_from_grpc, args=(on_metric,), daemon=True)
+    t.start()
+    print("[Inference] Worker gRPC iniciado.")
+
+
+@app.on_event("startup")
+def startup():
+    _start_inference_worker()
 
 
 if __name__ == "__main__":
-    run_inference_loop()
+    uvicorn.run("inference:app", host="0.0.0.0", port=HTTP_PORT, log_level="info")

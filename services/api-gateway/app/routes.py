@@ -1,36 +1,48 @@
 """
 Rotas REST do API Gateway.
-Expõe decisões do ml-service para consumo externo (dashboard, orquestrador, xApp client).
+Consulta o ml-service via HTTP — fluxo real entre serviços.
+Equivalente à interface A1/O1 do O-RAN (norte do RIC).
 """
-import sys
 import os
+import httpx
 from fastapi import APIRouter, HTTPException
-from typing import Optional
 
-# Importa o estado do inference worker (quando rodando no mesmo processo)
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../ml-service/app"))
+ML_SERVICE_URL = os.getenv("ML_SERVICE_URL", "http://localhost:8001")
 
 router = APIRouter(prefix="/network", tags=["network"])
 
-# Importação condicional do inference (integração interna)
-try:
-    from inference import get_latest_results
-    _has_inference = True
-except ImportError:
-    _has_inference = False
 
-    def get_latest_results():
-        return []
+def _call_ml(path: str, params: dict = None) -> dict:
+    """Chama ml-service via HTTP com timeout e tratamento de erro."""
+    try:
+        url = f"{ML_SERVICE_URL}{path}"
+        r = httpx.get(url, params=params, timeout=5.0)
+        r.raise_for_status()
+        return r.json()
+    except httpx.ConnectError:
+        raise HTTPException(
+            status_code=503,
+            detail=f"ML service indisponível em {ML_SERVICE_URL}. Verifique se o container está rodando."
+        )
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="ML service timeout.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/status")
 def get_network_status():
-    """Retorna o status atual da rede (última inferência de todos os nós)."""
-    results = get_latest_results()
+    """
+    Retorna status atual de todos os nós.
+    Consulta ml-service via HTTP → agrega por nó → determina status geral.
+    """
+    data = _call_ml("/results", {"limit": 200})
+    results = data.get("results", [])
+
     if not results:
         return {
-            "status": "SEM_DADOS",
-            "message": "Nenhuma métrica processada ainda. Aguarde o worker de inferência.",
+            "overall_status": "SEM_DADOS",
+            "message": "ML service ainda não processou métricas.",
             "nodes": [],
         }
 
@@ -58,30 +70,48 @@ def get_network_status():
 
 @router.get("/history")
 def get_history(limit: int = 20):
-    """Retorna histórico de inferências (últimas N entradas)."""
-    results = get_latest_results()
+    """Histórico das últimas inferências do ml-service."""
+    data = _call_ml("/results", {"limit": limit})
     return {
-        "count": len(results),
-        "history": results[-limit:],
+        "count": data.get("count", 0),
+        "history": data.get("results", []),
+    }
+
+
+@router.get("/alerts")
+def get_alerts():
+    """Retorna somente anomalias detectadas."""
+    data = _call_ml("/results", {"limit": 200})
+    results = data.get("results", [])
+    alerts = [r for r in results if r.get("status") != "NORMAL"]
+    return {
+        "alert_count": len(alerts),
+        "alerts": alerts[-50:],
     }
 
 
 @router.get("/node/{node_id}")
 def get_node_status(node_id: str):
-    """Retorna status de um nó específico."""
-    results = get_latest_results()
+    """Status do último ciclo de um nó específico."""
+    data = _call_ml("/results", {"limit": 200})
+    results = data.get("results", [])
     node_results = [r for r in results if r.get("node_id") == node_id]
     if not node_results:
         raise HTTPException(status_code=404, detail=f"Nó '{node_id}' não encontrado.")
     return node_results[-1]
 
 
-@router.get("/alerts")
-def get_alerts():
-    """Retorna somente entradas com anomalias detectadas."""
-    results = get_latest_results()
-    alerts = [r for r in results if r.get("status") != "NORMAL"]
-    return {
-        "alert_count": len(alerts),
-        "alerts": alerts[-50:],
-    }
+@router.post("/predict")
+def predict_on_demand(metric: dict):
+    """
+    Inferência sob demanda — envia métrica ao ml-service e retorna classificação.
+    Útil para testes pontuais e integração com sistemas externos.
+    """
+    try:
+        r = httpx.post(f"{ML_SERVICE_URL}/predict", json=metric, timeout=5.0)
+        r.raise_for_status()
+        return r.json()
+    except httpx.ConnectError:
+        raise HTTPException(status_code=503, detail="ML service indisponível.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
