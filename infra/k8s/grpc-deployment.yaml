@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grpc-ingestion
+  namespace: ai-network
+  labels:
+    app: grpc-ingestion
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: grpc-ingestion
+  template:
+    metadata:
+      labels:
+        app: grpc-ingestion
+    spec:
+      containers:
+        - name: grpc-ingestion
+          image: ai-network-optimizer/grpc-ingestion:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 50051
+              name: grpc
+          env:
+            - name: GRPC_PORT
+              value: "50051"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          livenessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - "import grpc; grpc.channel_ready_future(grpc.insecure_channel('localhost:50051')).result(timeout=3)"
+            initialDelaySeconds: 10
+            periodSeconds: 15

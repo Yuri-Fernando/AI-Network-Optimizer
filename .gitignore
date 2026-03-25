@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Modelos treinados (gerados pelo notebook/trainer)
+*.pkl
+*.joblib
+*.h5
+*.pt
+*.onnx
+
+# Jupyter
+.ipynb_checkpoints/
+notebooks/.ipynb_checkpoints/
+notebooks/*.png
+
+# Ambiente virtual
+.venv/
+venv/
+env/
+.env.local
+
+# Variáveis de ambiente sensíveis
+.env
+
+# Docker
+.docker/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Kubernetes secrets
+*-secret.yaml
+
+# Claude Code (settings locais)
+.claude/
+
+# Arquivos gerados pelo protoc (gerados no build/Docker)
+*_pb2.py
+*_pb2_grpc.py
+
+# Arquivos temporários / teste
+teste.ipynb
+project_structure_clean.txt

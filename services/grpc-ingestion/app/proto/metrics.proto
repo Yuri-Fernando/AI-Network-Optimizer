@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package network;
+
+service NetworkMetrics {
+  rpc StreamMetrics (Empty) returns (stream Metric);
+  rpc GetSnapshot (Empty) returns (Metric);
+}
+
+message Empty {}
+
+message Metric {
+  float latency       = 1;  // ms
+  float throughput    = 2;  // Mbps
+  float packet_loss   = 3;  // %
+  float jitter        = 4;  // ms
+  int64 timestamp     = 5;  // unix epoch ms
+  string node_id      = 6;  // ex: "gNB-001"
+}

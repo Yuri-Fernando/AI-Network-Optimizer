@@ -1,0 +1,68 @@
+version: "3.9"
+
+networks:
+  ai-network:
+    driver: bridge
+
+services:
+  grpc-ingestion:
+    build:
+      context: ../services/grpc-ingestion
+    container_name: grpc-ingestion
+    ports:
+      - "50051:50051"
+    environment:
+      - GRPC_PORT=50051
+    networks:
+      - ai-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import grpc; grpc.channel_ready_future(grpc.insecure_channel('localhost:50051')).result(timeout=5)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  ml-service:
+    build:
+      context: ../services/ml-service
+    container_name: ml-service
+    environment:
+      - GRPC_HOST=grpc-ingestion
+      - GRPC_PORT=50051
+      - MODEL_PATH=/app/model.pkl
+      - SCALER_PATH=/app/scaler.pkl
+      - INFERENCE_INTERVAL=1.0
+    depends_on:
+      - grpc-ingestion
+    networks:
+      - ai-network
+    restart: unless-stopped
+
+  api-gateway:
+    build:
+      context: ../services/api-gateway
+    container_name: api-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - ML_SERVICE_URL=http://ml-service:8001
+    depends_on:
+      - ml-service
+    networks:
+      - ai-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Redis opcional — para estado compartilhado entre replicas
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: redis
+  #   ports:
+  #     - "6379:6379"
+  #   networks:
+  #     - ai-network
