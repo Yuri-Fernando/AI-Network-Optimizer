@@ -19,7 +19,6 @@ build/
 # Jupyter
 .ipynb_checkpoints/
 notebooks/.ipynb_checkpoints/
-notebooks/*.png
 
 # Ambiente virtual
 .venv/
