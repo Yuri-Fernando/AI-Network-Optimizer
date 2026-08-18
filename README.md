@@ -1,143 +1,207 @@
 # AI Network Optimizer
 
-> Sistema de detecção de anomalias em métricas de rede, inspirado na arquitetura **xApp / near-RT RIC do ecossistema O-RAN (Open RAN)**.
+### O-RAN · 5G · Network Intelligence · Machine Learning · gRPC · Kubernetes
+
+## Status
+
+🟢 **Concluído — Projeto de portfólio / Telecom AI**
+
+Sistema de detecção de anomalias em métricas de rede inspirado na arquitetura **xApp / near-RT RIC do ecossistema O-RAN (Open RAN)**.
+
+O projeto implementa um fluxo distribuído para ingestão contínua de métricas, classificação do estado da rede com Machine Learning e exposição das decisões por API REST.
+
+A arquitetura foi desenvolvida para demonstrar a integração entre **IA, sistemas distribuídos, telecomunicações, streaming de dados e infraestrutura cloud-native**.
 
 ---
 
-## Visão Geral
+## Sobre o Projeto
 
-Redes de telecomunicações modernas (4G/5G) geram volumes massivos de métricas em tempo real — latência, throughput, perda de pacotes, jitter. Detectar degradações antes que impactem usuários é um dos maiores desafios operacionais do setor.
+Redes modernas de telecomunicações geram continuamente métricas como:
 
-Este projeto simula exatamente o que acontece dentro de um **RIC (RAN Intelligent Controller)** do O-RAN:
+- Latência;
+- Throughput;
+- Packet Loss;
+- Jitter.
 
-- Um **xApp** coleta métricas da rede via stream contínuo
-- Um modelo de IA classifica o estado da rede em tempo quase real
-- Decisões de controle são expostas via API REST para orquestradores externos
+O desafio abordado pelo projeto é detectar degradações da rede e transformar essas métricas em decisões estruturadas em tempo quase real.
 
-```
+O fluxo implementado é:
+
+```text
 [Simulador gNB]
       │
-      │  gRPC streaming  (E2 interface — O-RAN)
+      │ gRPC streaming
       ▼
 [gRPC Ingestion Service]
       │
-      │  pipeline de métricas
+      │ métricas contínuas
       ▼
 [ML Service — RandomForest]
       │
-      │  REST API  (A1/O1 interface — O-RAN)
+      │ REST API
       ▼
 [API Gateway — FastAPI]
 ```
 
 ---
 
-## Conexão com O-RAN
+# Objetivo
 
-| Componente do Projeto | Equivalente O-RAN | Descrição |
-|---|---|---|
-| `grpc-ingestion` | E2 node (gNB) → near-RT RIC | Coleta métricas do rádio e envia via stream |
-| `ml-service` | xApp no near-RT RIC | Detecta anomalias e recomenda ações |
-| `api-gateway` | A1 / O1 interface | Expõe decisões para sistemas externos |
-| HPA Kubernetes | Elasticidade em telecom | Escala automática sob carga de tráfego |
+O projeto busca demonstrar uma arquitetura inspirada no funcionamento de um **RIC (RAN Intelligent Controller)**, conectando:
+
+- Ingestão contínua de métricas;
+- Processamento distribuído;
+- Inferência de Machine Learning;
+- Detecção de anomalias;
+- Exposição de decisões via API;
+- Containerização;
+- Orquestração com Kubernetes;
+- Autoscaling.
 
 ---
 
-## Stack Tecnológico
+# Arquitetura
+
+```text
+                    ┌──────────────────────┐
+                    │      Simulador       │
+                    │        gNB           │
+                    └──────────┬───────────┘
+                               │
+                               │ gRPC Streaming
+                               ▼
+                    ┌──────────────────────┐
+                    │  gRPC Ingestion      │
+                    │      Service         │
+                    └──────────┬───────────┘
+                               │
+                               │ Network Metrics
+                               ▼
+                    ┌──────────────────────┐
+                    │     ML Service       │
+                    │    RandomForest      │
+                    │  Real-Time Inference │
+                    └──────────┬───────────┘
+                               │
+                               │ REST
+                               ▼
+                    ┌──────────────────────┐
+                    │    API Gateway       │
+                    │       FastAPI        │
+                    └──────────┬───────────┘
+                               │
+                               ▼
+                    External Consumers
+```
+
+---
+
+# Relação com O-RAN
+
+| Componente do Projeto | Equivalente O-RAN | Função |
+|---|---|---|
+| `grpc-ingestion` | E2 node / gNB | Simula coleta e envio de métricas |
+| `ml-service` | xApp / near-RT RIC | Classificação e decisão baseada em IA |
+| `api-gateway` | A1 / O1 | Exposição das decisões para sistemas externos |
+| Kubernetes HPA | Elasticidade | Escalonamento automático do serviço |
+
+> A arquitetura é uma **simulação inspirada no ecossistema O-RAN**, não uma implementação completa de uma infraestrutura O-RAN real.
+
+---
+
+# Classificação de Anomalias
+
+O modelo trabalha com três estados de rede:
+
+| Estado | Latência | Throughput | Packet Loss | Ação Recomendada |
+|---|---:|---:|---:|---|
+| **NORMAL** | 5–30 ms | 80–150 Mbps | 0–1% | NENHUMA |
+| **CONGESTIONADO** | 80–250 ms | 5–40 Mbps | 5–20% | BALANCEAR_CARGA |
+| **DEGRADADO** | 200–500 ms | 1–15 Mbps | 15–40% | REROUTING_EMERGENCIAL |
+
+### Features utilizadas
+
+- Latência;
+- Throughput;
+- Packet Loss;
+- Jitter.
+
+---
+
+# Stack Tecnológica
 
 | Tecnologia | Papel | Decisão Técnica |
 |---|---|---|
-| **gRPC + Protocol Buffers** | Ingestão de dados | Streaming nativo, binário 3-10x menor que JSON, padrão em telecom |
-| **Python / FastAPI** | API Gateway REST | Alta performance, async-ready, OpenAPI automático |
-| **scikit-learn (RandomForest)** | Detecção de anomalias | Inferência <5ms, interpretável, sem GPU |
-| **Docker + Compose** | Containerização | Reprodutibilidade e isolamento |
-| **Kubernetes + HPA** | Orquestração | Autoscaling baseado em CPU — essencial em ambientes telecom |
+| **gRPC + Protocol Buffers** | Ingestão | Streaming contínuo e tipagem forte |
+| **Python / FastAPI** | API Gateway | API REST assíncrona e OpenAPI |
+| **scikit-learn / RandomForest** | ML | Inferência rápida e interpretável |
+| **Docker** | Containerização | Isolamento e reprodutibilidade |
+| **Docker Compose** | Ambiente local | Execução integrada dos serviços |
+| **Kubernetes** | Orquestração | Deploy e gerenciamento dos serviços |
+| **HPA** | Autoscaling | Escalonamento automático do ML Service |
 
 ---
 
-## Classificação de Anomalias
+# Pipeline de Processamento
 
-O modelo detecta 3 estados de rede com base em 4 features:
-
-| Estado | Latência | Throughput | Packet Loss | Ação Recomendada |
-|---|---|---|---|---|
-| **NORMAL** | 5–30ms | 80–150 Mbps | 0–1% | NENHUMA |
-| **CONGESTIONADO** | 80–250ms | 5–40 Mbps | 5–20% | BALANCEAR_CARGA |
-| **DEGRADADO** | 200–500ms | 1–15 Mbps | 15–40% | REROUTING_EMERGENCIAL |
-
----
-
-## Quick Start
-
-### Opção 1 — Notebook (sem Docker, zero configuração)
-
-```bash
-pip install jupyter scikit-learn numpy pandas matplotlib seaborn fastapi uvicorn httpx grpcio grpcio-tools
-jupyter notebook notebooks/ai_network_optimizer.ipynb
-```
-
-Execute as 9 etapas em sequência:
-
-| Etapa | O que faz |
-|---|---|
-| 0 | Instala dependências (checa o que já existe) |
-| 1 | Simulador de métricas de rede (gNB) |
-| 2 | Dataset de treino + visualização das features |
-| 3 | Treinamento + matriz de confusão + feature importance |
-| 4 | Pipeline de inferência em tempo real |
-| 5 | Sobe FastAPI na porta 8000 e testa endpoints via httpx |
-| 6 | Benchmark de latência e ROC-AUC |
-| 7 | Compila `.proto` e demonstra streaming gRPC |
-| 8 | Comandos Docker e Kubernetes |
-| 9 | Respostas de entrevista baseadas no código real |
-
-### Opção 2 — Docker Compose (ambiente completo local)
-
-```bash
-cd infra/
-docker-compose up --build
-```
-
-| Serviço | URL |
-|---|---|
-| API REST | http://localhost:8000 |
-| Swagger / Docs | http://localhost:8000/docs |
-| gRPC | localhost:50051 |
-
-### Opção 3 — Kubernetes (produção)
-
-```bash
-# Build das imagens
-docker build -t ai-network-optimizer/grpc-ingestion:latest services/grpc-ingestion/
-docker build -t ai-network-optimizer/ml-service:latest    services/ml-service/
-docker build -t ai-network-optimizer/api-gateway:latest   services/api-gateway/
-
-# Deploy
-kubectl apply -f infra/k8s/namespace.yaml
-kubectl apply -f infra/k8s/
-
-# Verificar pods e autoscaling
-kubectl get pods -n ai-network
-kubectl get hpa  -n ai-network
-
-# Acessar API
-kubectl port-forward svc/api-gateway-service 8000:80 -n ai-network
+```text
+Network Metrics
+      ↓
+gNB Simulator
+      ↓
+gRPC Streaming
+      ↓
+Ingestion Service
+      ↓
+Metric Pipeline
+      ↓
+Feature Extraction
+      ↓
+RandomForest
+      ↓
+Network State
+      ↓
+Recommended Action
+      ↓
+FastAPI Gateway
+      ↓
+External Consumer
 ```
 
 ---
 
-## Endpoints REST
+# Funcionalidades
+
+- Simulação de métricas de rede;
+- Streaming contínuo via gRPC;
+- Processamento desacoplado;
+- Classificação de estados da rede;
+- Inferência em tempo quase real;
+- API REST;
+- Monitoramento do estado dos nós;
+- Histórico de inferências;
+- Detecção de anomalias;
+- Recomendação de ações;
+- Containerização dos serviços;
+- Deploy local via Docker Compose;
+- Deploy em Kubernetes;
+- Autoscaling com HPA.
+
+---
+
+# Endpoints REST
 
 | Método | Endpoint | Descrição |
 |---|---|---|
-| GET | `/` | Info do serviço |
-| GET | `/health` | Health check |
-| GET | `/network/status` | Status atual de todos os nós (last seen) |
-| GET | `/network/alerts` | Somente anomalias detectadas |
-| GET | `/network/history?limit=N` | Histórico de inferências |
-| GET | `/network/node/{id}` | Status de um nó específico |
+| `GET` | `/` | Informações do serviço |
+| `GET` | `/health` | Health check |
+| `GET` | `/network/status` | Estado atual dos nós |
+| `GET` | `/network/alerts` | Apenas anomalias detectadas |
+| `GET` | `/network/history?limit=N` | Histórico de inferências |
+| `GET` | `/network/node/{id}` | Estado de um nó específico |
 
-Exemplo de resposta `/network/status`:
+### Exemplo
+
 ```json
 {
   "overall_status": "CONGESTIONADO",
@@ -161,77 +225,329 @@ Exemplo de resposta `/network/status`:
 
 ---
 
-## Estrutura do Projeto
+# Quick Start
 
+## Opção 1 — Notebook
+
+Instale as dependências:
+
+```bash
+pip install jupyter scikit-learn numpy pandas matplotlib seaborn fastapi uvicorn httpx grpcio grpcio-tools
 ```
+
+Execute:
+
+```bash
+jupyter notebook notebooks/ai_network_optimizer.ipynb
+```
+
+O notebook percorre o pipeline completo:
+
+| Etapa | Função |
+|---|---|
+| 0 | Instalação/verificação das dependências |
+| 1 | Simulador de métricas de rede |
+| 2 | Dataset e visualização |
+| 3 | Treinamento e avaliação |
+| 4 | Pipeline de inferência |
+| 5 | FastAPI e testes de endpoints |
+| 6 | Benchmark de latência e ROC-AUC |
+| 7 | Compilação `.proto` e streaming gRPC |
+| 8 | Docker e Kubernetes |
+| 9 | Resumo técnico para entrevista |
+
+---
+
+## Opção 2 — Docker Compose
+
+```bash
+cd infra/
+docker-compose up --build
+```
+
+Serviços:
+
+| Serviço | Acesso |
+|---|---|
+| API REST | `http://localhost:8000` |
+| Swagger | `http://localhost:8000/docs` |
+| gRPC | `localhost:50051` |
+
+---
+
+## Opção 3 — Kubernetes
+
+Build das imagens:
+
+```bash
+docker build -t ai-network-optimizer/grpc-ingestion:latest services/grpc-ingestion/
+docker build -t ai-network-optimizer/ml-service:latest services/ml-service/
+docker build -t ai-network-optimizer/api-gateway:latest services/api-gateway/
+```
+
+Deploy:
+
+```bash
+kubectl apply -f infra/k8s/namespace.yaml
+kubectl apply -f infra/k8s/
+```
+
+Verificar:
+
+```bash
+kubectl get pods -n ai-network
+kubectl get hpa -n ai-network
+```
+
+Acessar a API:
+
+```bash
+kubectl port-forward svc/api-gateway-service 8000:80 -n ai-network
+```
+
+> O deployment em Kubernetes faz parte da arquitetura demonstrativa e experimental do projeto.
+
+---
+
+# Estrutura do Projeto
+
+```text
 ai-network-optimizer/
+│
 ├── services/
-│   ├── grpc-ingestion/          # Servidor gRPC — simula E2 interface
+│   ├── grpc-ingestion/
 │   │   ├── app/
-│   │   │   ├── server.py        # Servidor gRPC
-│   │   │   ├── simulator.py     # Gerador de métricas de rede
+│   │   │   ├── server.py
+│   │   │   ├── simulator.py
 │   │   │   └── proto/
 │   │   │       └── metrics.proto
 │   │   ├── Dockerfile
 │   │   └── requirements.txt
-│   ├── ml-service/              # Detecção de anomalias com IA
+│   │
+│   ├── ml-service/
 │   │   ├── app/
-│   │   │   ├── model.py         # Predict + feature extraction
-│   │   │   ├── trainer.py       # Treinamento do RandomForest
-│   │   │   └── inference.py     # Worker contínuo de inferência
+│   │   │   ├── model.py
+│   │   │   ├── trainer.py
+│   │   │   └── inference.py
 │   │   ├── Dockerfile
 │   │   └── requirements.txt
-│   └── api-gateway/             # REST API — exposição de decisões
+│   │
+│   └── api-gateway/
 │       ├── app/
-│       │   ├── main.py          # FastAPI app + startup hooks
-│       │   └── routes.py        # Endpoints REST
+│       │   ├── main.py
+│       │   └── routes.py
 │       ├── Dockerfile
 │       └── requirements.txt
+│
 ├── infra/
-│   ├── docker-compose.yml       # Ambiente local completo
+│   ├── docker-compose.yml
 │   └── k8s/
 │       ├── namespace.yaml
 │       ├── grpc-deployment.yaml
 │       ├── ml-deployment.yaml
 │       ├── api-deployment.yaml
 │       ├── services.yaml
-│       └── hpa.yaml             # Autoscaling (2–8 replicas)
+│       └── hpa.yaml
+│
 ├── notebooks/
-│   └── ai_network_optimizer.ipynb   # Pipeline completo executável
+│   └── ai_network_optimizer.ipynb
+│
 ├── shared/
 │   └── schemas/
 │       └── metric_schema.py
+│
 └── README.md
 ```
 
 ---
 
-## Trade-offs Documentados
+# Serviços
 
-**gRPC na ingestão vs REST:**
-> gRPC vence em streaming contínuo (essencial em telecom), tipagem forte via proto e eficiência binária. REST vence em universalidade e integração com sistemas legados. Aqui: gRPC onde os dados fluem, REST onde são consumidos.
+## gRPC Ingestion Service
 
-**RandomForest vs Deep Learning:**
-> RF entrega inferência abaixo de 5ms sem GPU, com interpretabilidade via feature importance. LSTM seria superior para padrões temporais complexos, mas adiciona latência e complexidade operacional desnecessária para o escopo deste problema.
+Responsável por:
 
-**Kubernetes vs Docker Compose:**
-> Compose é ideal para desenvolvimento local e demos. K8s é necessário para HA, autoscaling e multi-node — o HPA escala `ml-service` de 2 a 8 réplicas automaticamente sob carga.
+- Simular nós gNB;
+- Gerar métricas;
+- Fazer streaming via gRPC;
+- Disponibilizar dados ao ML Service.
+
+## ML Service
+
+Responsável por:
+
+- Treinar o RandomForest;
+- Extrair features;
+- Executar inferência;
+- Classificar o estado da rede;
+- Recomendar ações;
+- Processar o fluxo continuamente.
+
+## API Gateway
+
+Responsável por:
+
+- Expor a API REST;
+- Disponibilizar status da rede;
+- Expor alertas;
+- Consultar histórico;
+- Consultar nós individualmente.
 
 ---
 
-## Contexto: O-RAN e xApps
+# Trade-offs Técnicos
 
-O **O-RAN (Open Radio Access Network)** é uma iniciativa para abrir e virtualizar redes móveis, permitindo que componentes de diferentes fornecedores interoperem. O **RIC (RAN Intelligent Controller)** é o componente central que executa aplicações de IA/ML para otimização em tempo real.
+## gRPC vs REST
 
-- **xApp** → roda no near-RT RIC (horizonte de 10ms–1s), reage a métricas em tempo quase real
-- **rApp** → roda no non-RT RIC, análise estratégica de longo prazo
-- **E2 interface** → canal entre RIC e os rádios (gNB), onde fluem as métricas
-- **A1/O1 interface** → interface norte do RIC, consumida por orquestradores externos
+**gRPC** foi escolhido para a camada de ingestão por sua adequação a streaming contínuo, contratos definidos por Protocol Buffers e comunicação eficiente entre serviços.
 
-Este projeto simula o ciclo completo: **E2 → near-RT RIC (xApp) → A1**.
+**REST** foi utilizado na camada de exposição porque oferece maior universalidade e facilidade de integração com consumidores externos.
+
+```text
+gRPC → ingestão / streaming
+REST → consumo / integração
+```
 
 ---
 
-## Autor
+## RandomForest vs Deep Learning
 
-**Yuri Fernando** — [github.com/Yuri-Fernando](https://github.com/Yuri-Fernando)
+O **RandomForest** foi utilizado por oferecer:
+
+- Inferência rápida;
+- Baixa complexidade operacional;
+- Interpretabilidade;
+- Execução sem GPU.
+
+Modelos temporais mais complexos, como LSTM, poderiam ser utilizados em cenários com padrões temporais mais sofisticados, mas adicionariam complexidade ao pipeline.
+
+---
+
+## Docker Compose vs Kubernetes
+
+**Docker Compose** é utilizado para desenvolvimento local e demonstração.
+
+**Kubernetes** adiciona:
+
+- Gerenciamento dos serviços;
+- Replicação;
+- Autoscaling;
+- Orquestração;
+- Ambiente multi-node.
+
+---
+
+# Contexto O-RAN
+
+O **O-RAN (Open Radio Access Network)** busca ampliar a abertura e interoperabilidade dos componentes das redes móveis.
+
+Dentro desse contexto:
+
+- **xApp** → aplicação executada no near-RT RIC;
+- **rApp** → aplicação associada ao non-RT RIC;
+- **E2** → comunicação entre RIC e elementos da RAN;
+- **A1/O1** → interfaces utilizadas na integração com componentes externos.
+
+Este projeto simula conceitualmente o fluxo:
+
+```text
+E2
+ ↓
+near-RT RIC / xApp
+ ↓
+A1 / O1
+```
+
+---
+
+# O que este projeto demonstra
+
+- Machine Learning aplicado a telecom;
+- Análise de métricas de redes;
+- Detecção de anomalias;
+- Sistemas distribuídos;
+- Streaming de dados;
+- gRPC;
+- Protocol Buffers;
+- APIs REST;
+- FastAPI;
+- Docker;
+- Docker Compose;
+- Kubernetes;
+- Horizontal Pod Autoscaler;
+- Arquitetura de microsserviços;
+- Inferência em tempo quase real;
+- Integração entre IA e infraestrutura de telecom;
+- Conceitos de O-RAN e RIC.
+
+---
+
+# Limitações
+
+- As métricas são geradas por um simulador;
+- O ambiente não utiliza uma RAN 4G/5G física;
+- O projeto não implementa uma pilha O-RAN real;
+- As interfaces E2/A1/O1 são representadas conceitualmente;
+- O modelo utiliza dados simulados e não telemetria operacional de uma operadora;
+- Os resultados não representam desempenho de uma rede comercial;
+- O RandomForest não incorpora modelagem temporal profunda;
+- O HPA é utilizado como mecanismo demonstrativo de autoscaling.
+
+---
+
+# Melhorias Futuras
+
+- Integração com datasets reais de redes móveis;
+- Modelos temporais para detecção de degradação;
+- LSTM ou Transformers para séries temporais;
+- Reinforcement Learning para otimização de ações;
+- Prometheus para métricas;
+- Grafana para observabilidade;
+- Redis Streams;
+- Persistent storage;
+- Integração com simuladores O-RAN;
+- xApp mais próximo da arquitetura real;
+- Policy Engine;
+- Alertas automáticos;
+- Testes de carga;
+- Distributed tracing;
+- CI/CD;
+- Deployment em ambiente cloud.
+
+---
+
+# Status Final
+
+🟢 **Concluído**
+
+O projeto possui a arquitetura principal implementada, incluindo:
+
+- ✅ Simulador de métricas de rede;
+- ✅ gRPC streaming;
+- ✅ Serviço de ingestão;
+- ✅ Machine Learning com RandomForest;
+- ✅ Inferência contínua;
+- ✅ API FastAPI;
+- ✅ Endpoints de monitoramento;
+- ✅ Histórico de inferências;
+- ✅ Detecção de anomalias;
+- ✅ Recomendação de ações;
+- ✅ Docker;
+- ✅ Docker Compose;
+- ✅ Kubernetes;
+- ✅ HPA;
+- ✅ Notebook completo;
+- ✅ Documentação arquitetural;
+- ✅ Relação conceitual com O-RAN.
+
+O projeto permanece disponível como demonstração técnica da integração entre **IA, telecomunicações, sistemas distribuídos e infraestrutura cloud-native**.
+
+---
+
+# Autor
+
+**Yuri Fernando Dubbern**
+
+AI/ML Engineer · Machine Learning · Data Engineering · Telecom AI · Distributed Systems
+
+[LinkedIn](https://www.linkedin.com/in/yuridubbern) · [GitHub](https://github.com/Yuri-Fernando) · [Lattes](http://lattes.cnpq.br/7151392692642166) · [Linktree](https://linktr.ee/yuri.f.dubbern)
