@@ -12,6 +12,25 @@ O projeto implementa um fluxo distribuído para ingestão contínua de métricas
 
 A arquitetura foi desenvolvida para demonstrar a integração entre **IA, sistemas distribuídos, telecomunicações, streaming de dados e infraestrutura cloud-native**.
 
+Posicionamento no portfólio: **Cloud-native Telecom ML** — três
+microsserviços (gRPC ingestion · ML service · API gateway), streaming,
+Kubernetes com autoscaling. Trade-offs formalizados em
+[`docs/decisions/`](docs/decisions/).
+
+### Status das capacidades
+
+| Capacidade | Status |
+|---|---|
+| Microsserviços (gRPC ingestion · ML service · API gateway) | ✅ `services/` |
+| Contrato gRPC (Protocol Buffers) | ✅ `services/grpc-ingestion/app/proto/metrics.proto` |
+| Modelo de detecção de anomalia (RandomForest) | ✅ `services/ml-service/` |
+| API REST de consumo | ✅ `services/api-gateway/` |
+| Docker Compose (dev) | ✅ `infra/docker-compose.yml` |
+| Kubernetes + HPA (autoscaling) | ✅ `infra/k8s/` |
+| Streaming buffer (Redis Streams) + métricas Prometheus + logs estruturados | ✅ V2 (`notebooks/..._v2.ipynb`) |
+| ADRs de arquitetura | ✅ `docs/decisions/ADR-001..004` |
+| Deploy real em cluster | 🗺️ manifests prontos; `kubectl apply` = próximo passo |
+
 ---
 
 ## Sobre o Projeto
@@ -396,6 +415,11 @@ Responsável por:
 ---
 
 # Trade-offs Técnicos
+
+> Formalizados como ADRs em [`docs/decisions/`](docs/decisions/):
+> ADR-001 (gRPC vs REST), ADR-002 (RandomForest vs Deep Learning),
+> ADR-003 (Compose vs Kubernetes), ADR-004 (Redis Streams vs Kafka neste
+> escopo). Resumo abaixo.
 
 ## gRPC vs REST
 
